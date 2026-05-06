@@ -1,43 +1,24 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Files, Inbox, Send, Plus } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
-
-export const metadata = { title: "Dashboard" };
-
-const RECENT = [
-  {
-    form: "Tenancy Application",
-    signer: "Jane Smith",
-    when: "2 minutes ago",
-    file: "Tenancy-Application_Jane-Smith_2026-05-06.pdf",
-  },
-  {
-    form: "Listing Authority",
-    signer: "Marcus Reid",
-    when: "1 hour ago",
-    file: "Listing-Authority_Marcus-Reid_2026-05-06.pdf",
-  },
-  {
-    form: "Condition Report",
-    signer: "Olivia Tran",
-    when: "Yesterday",
-    file: "Condition-Report_Olivia-Tran_2026-05-05.pdf",
-  },
-  {
-    form: "Tenancy Application",
-    signer: "Liam Chen",
-    when: "Yesterday",
-    file: "Tenancy-Application_Liam-Chen_2026-05-05.pdf",
-  },
-  {
-    form: "Repair Authorisation",
-    signer: "Aisha Patel",
-    when: "2 days ago",
-    file: "Repair-Authorisation_Aisha-Patel_2026-05-04.pdf",
-  },
-];
+import { formStore, submissionStore } from "@/lib/store";
+import type { FormDoc, SubmissionDoc } from "@/lib/types";
+import { downloadDataUrl } from "@/lib/fillPdf";
 
 export default function DashboardPage() {
+  const [forms, setForms] = useState<FormDoc[]>([]);
+  const [subs, setSubs] = useState<SubmissionDoc[]>([]);
+
+  useEffect(() => {
+    setForms(formStore.list());
+    setSubs(submissionStore.list());
+  }, []);
+
+  const recent = subs.slice(0, 5);
+
   return (
     <AppShell
       pageTitle="Dashboard"
@@ -48,9 +29,24 @@ export default function DashboardPage() {
       }
     >
       <div className="grid gap-4 md:grid-cols-3">
-        <Stat icon={Files} label="Active forms" value="3 / 5" hint="Entry plan" />
-        <Stat icon={Send} label="Submissions this month" value="148" hint="+24 from last week" />
-        <Stat icon={Inbox} label="Awaiting your review" value="0" hint="Nothing in your inbox" />
+        <Stat
+          icon={Files}
+          label="Active forms"
+          value={`${forms.length} / 5`}
+          hint="Entry plan"
+        />
+        <Stat
+          icon={Send}
+          label="Submissions"
+          value={String(subs.length)}
+          hint={subs.length ? "All time" : "Nothing yet"}
+        />
+        <Stat
+          icon={Inbox}
+          label="Awaiting review"
+          value="0"
+          hint="Nothing in your inbox"
+        />
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
@@ -64,27 +60,46 @@ export default function DashboardPage() {
               View all →
             </Link>
           </div>
-          <ul className="divide-y divide-ink/10">
-            {RECENT.map((row) => (
-              <li
-                key={row.file}
-                className="flex items-center justify-between gap-4 px-6 py-4"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-ink">
-                    {row.form}
-                  </p>
-                  <p className="truncate font-mono text-xs text-ink/55">
-                    {row.file}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-ink">{row.signer}</p>
-                  <p className="text-xs text-ink/50">{row.when}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {recent.length === 0 ? (
+            <div className="px-6 py-12 text-center text-sm text-ink/55">
+              Nothing here yet. Upload a form, share the link, complete it as a
+              signer, and it'll appear here.
+            </div>
+          ) : (
+            <ul className="divide-y divide-ink/10">
+              {recent.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex items-center justify-between gap-4 px-6 py-4"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ink">
+                      {row.formName}
+                    </p>
+                    <p className="truncate font-mono text-xs text-ink/55">
+                      {row.filename}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 text-right">
+                    <div>
+                      <p className="text-sm text-ink">{row.signerName}</p>
+                      <p className="text-xs text-ink/50">
+                        {new Date(row.submittedAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() =>
+                        downloadDataUrl(row.pdfDataUrl, row.filename)
+                      }
+                      className="btn-secondary text-xs"
+                    >
+                      PDF
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="card p-6">

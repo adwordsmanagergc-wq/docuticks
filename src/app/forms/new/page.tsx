@@ -1,9 +1,52 @@
 "use client";
 
-import { UploadCloud, FileText, ImageIcon, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { nanoid } from "nanoid";
+import { UploadCloud, Loader2, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
+import { dataUrlToUint8Array, fileToDataUrl, loadPdfJs } from "@/lib/pdf";
+import { formStore } from "@/lib/store";
+import { DEFAULT_FILENAME_PATTERN } from "@/lib/types";
 
 export default function NewFormPage() {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function handleFile(file: File | null) {
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      setErr("Please upload a PDF. (Image OCR coming soon.)");
+      return;
+    }
+    setErr(null);
+    setBusy(true);
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const pdfjs = await loadPdfJs();
+      const doc = await pdfjs.getDocument({ data: dataUrlToUint8Array(dataUrl) })
+        .promise;
+      const id = nanoid(8);
+      const name = file.name.replace(/\.pdf$/i, "") || "Untitled form";
+      formStore.upsert({
+        id,
+        name,
+        status: "draft",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        pdfDataUrl: dataUrl,
+        pageCount: doc.numPages,
+        fields: [],
+        filenamePattern: DEFAULT_FILENAME_PATTERN,
+      });
+      router.push(`/forms/${id}`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not read PDF");
+      setBusy(false);
+    }
+  }
+
   return (
     <AppShell pageTitle="New form">
       <div className="grid gap-6 lg:grid-cols-3">
@@ -12,51 +55,79 @@ export default function NewFormPage() {
             Upload your scanned document
           </h2>
           <p className="mt-1 text-sm text-ink/60">
-            PDF, JPG or PNG up to 25 MB. We'll render every page so you can
-            place fields directly on top.
+            PDF up to 25 MB. We'll render every page so you can place fields
+            directly on top.
           </p>
-          <label className="mt-6 flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-ink/15 bg-paper py-16 text-center transition-colors hover:border-tick">
-            <UploadCloud className="h-10 w-10 text-ink/40" strokeWidth={1.4} />
-            <p className="text-sm font-medium text-ink">
-              Drop your file here, or click to browse
-            </p>
-            <p className="text-xs text-ink/50">
-              We accept PDF, JPG, PNG. 25 MB max.
-            </p>
-            <input type="file" accept=".pdf,image/*" className="hidden" />
+
+          <label
+            onDragOver={(e) => {
+              e.preventDefault();
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const f = e.dataTransfer.files?.[0];
+              void handleFile(f ?? null);
+            }}
+            className={`mt-6 flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed py-16 text-center transition-colors ${
+              busy
+                ? "border-tick bg-tick/5"
+                : "border-ink/15 bg-paper hover:border-tick"
+            }`}
+          >
+            {busy ? (
+              <>
+                <Loader2 className="h-8 w-8 animate-spin text-tick" />
+                <p className="text-sm font-medium text-ink">
+                  Reading your PDF…
+                </p>
+              </>
+            ) : (
+              <>
+                <UploadCloud className="h-10 w-10 text-ink/40" strokeWidth={1.4} />
+                <p className="text-sm font-medium text-ink">
+                  Drop your file here, or click to browse
+                </p>
+                <p className="text-xs text-ink/50">PDF only. 25 MB max.</p>
+              </>
+            )}
+            <input
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              disabled={busy}
+              onChange={(e) => void handleFile(e.target.files?.[0] ?? null)}
+            />
           </label>
+
+          {err ? (
+            <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {err}
+            </p>
+          ) : null}
+
           <div className="mt-4 flex items-center gap-2 text-xs text-ink/55">
             <Sparkles className="h-3.5 w-3.5 text-tick" />
-            Optional: we'll OCR the page and suggest field positions.
+            Your file is processed entirely in this browser for the demo. No
+            upload to a server.
           </div>
         </div>
+
         <div className="card p-6">
-          <h3 className="text-sm font-semibold text-ink">Or start from a template</h3>
-          <p className="mt-1 text-xs text-ink/60">
-            Pre-built forms for the most common workflows.
-          </p>
-          <div className="mt-5 space-y-3">
-            {[
-              { icon: FileText, name: "Tenancy Application", industry: "Real estate" },
-              { icon: FileText, name: "New Patient Intake", industry: "Allied health" },
-              { icon: FileText, name: "Quote Acceptance", industry: "Trades" },
-              { icon: ImageIcon, name: "Excursion Permission", industry: "Education" },
-            ].map((t) => (
-              <button
-                key={t.name}
-                type="button"
-                className="flex w-full items-center gap-3 rounded-lg border border-ink/10 p-3 text-left hover:border-tick"
-              >
-                <t.icon className="h-4 w-4 text-ink/50" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-ink">
-                    {t.name}
-                  </p>
-                  <p className="text-xs text-ink/50">{t.industry}</p>
-                </div>
-              </button>
-            ))}
-          </div>
+          <h3 className="text-sm font-semibold text-ink">What happens next</h3>
+          <ol className="mt-3 space-y-3 text-sm text-ink/65">
+            <li>
+              <span className="font-medium text-ink">1. We render the pages.</span>{" "}
+              Every page becomes a canvas you can drop fields onto.
+            </li>
+            <li>
+              <span className="font-medium text-ink">2. You place fields.</span>{" "}
+              Drag from the palette: text, tick boxes, dates, signature.
+            </li>
+            <li>
+              <span className="font-medium text-ink">3. Share the link.</span>{" "}
+              Your client completes the form on any device.
+            </li>
+          </ol>
         </div>
       </div>
     </AppShell>
