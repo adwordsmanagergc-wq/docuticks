@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #0e1b2c;
+  --paper: #f4f5f7;
+  --tick: #10b981;
+  --accent: #3b82f6;
+}
+
+html,
+body {
+  background: #ffffff;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+@layer base {
+  body {
+    @apply font-sans;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display tracking-tight;
+  }
+  ::selection {
+    background: rgba(16, 185, 129, 0.25);
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:shadow-ring;
+  }
+  .btn-primary {
+    @apply btn bg-ink text-white hover:bg-ink-800;
+  }
+  .btn-secondary {
+    @apply btn border border-ink/15 bg-white text-ink hover:border-ink/30;
+  }
+  .btn-tick {
+    @apply btn bg-tick text-white hover:brightness-110;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white px-3 py-1 text-xs font-medium text-ink/70;
+  }
+  .card {
+    @apply rounded-2xl border border-ink/10 bg-white shadow-soft;
+  }
+  .eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full bg-tick/10 px-3 py-1 text-xs font-medium uppercase tracking-wider text-tick;
+  }
+  .container-x {
+    @apply mx-auto w-full max-w-6xl px-6;
+  }
+  .link-muted {
+    @apply text-ink/60 hover:text-ink transition-colors;
+  }
+}
+
+.bg-paper-grid {
+  background-color: #f4f5f7;
+  background-image:
+    linear-gradient(to right, rgba(14, 27, 44, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(14, 27, 44, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.fade-mask-b {
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
