@@ -1,10 +1,13 @@
+"use client";
+
 import Link from "next/link";
+import { useActionState } from "react";
 import { Check } from "lucide-react";
 import { AuthShell, TextField } from "@/components/AuthShell";
-
-export const metadata = { title: "Create your account" };
+import { signupAction, googleSignInAction } from "@/lib/actions";
 
 export default function SignupPage() {
+  const [state, action, pending] = useActionState(signupAction, null);
   return (
     <AuthShell
       title="Start your 14-day free trial."
@@ -18,13 +21,35 @@ export default function SignupPage() {
         </>
       }
     >
-      <form className="space-y-4">
-        <TextField label="Full name" placeholder="Jane Smith" />
-        <TextField label="Work email" type="email" placeholder="you@example.com" />
-        <TextField label="Password" type="password" placeholder="At least 8 characters" />
-        <TextField label="Company / industry" placeholder="Smith Property" />
-        <button type="button" className="btn-tick w-full">
-          Create my account
+      <form action={action} className="space-y-4">
+        <TextField label="Full name" name="name" required placeholder="Jane Smith" />
+        <TextField
+          label="Work email"
+          name="email"
+          type="email"
+          required
+          placeholder="you@example.com"
+        />
+        <TextField
+          label="Password"
+          name="password"
+          type="password"
+          required
+          minLength={8}
+          placeholder="At least 8 characters"
+        />
+        <TextField label="Company / industry" name="company" placeholder="Smith Property" />
+        {state?.error ? (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {state.error}
+          </p>
+        ) : null}
+        <button
+          type="submit"
+          disabled={pending}
+          className="btn-tick w-full disabled:opacity-60"
+        >
+          {pending ? "Creating account…" : "Create my account"}
         </button>
         <ul className="space-y-1.5 pt-2 text-xs text-ink/60">
           <li className="flex items-center gap-1.5">
@@ -37,6 +62,11 @@ export default function SignupPage() {
             <Check className="h-3.5 w-3.5 text-tick" /> Cancel anytime
           </li>
         </ul>
+      </form>
+      <form action={googleSignInAction} className="mt-3">
+        <button type="submit" className="btn-secondary w-full">
+          Continue with Google
+        </button>
       </form>
     </AuthShell>
   );

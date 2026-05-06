@@ -1,9 +1,12 @@
-import Link from "next/link";
-import { AuthShell, TextField } from "@/components/AuthShell";
+"use client";
 
-export const metadata = { title: "Log in" };
+import Link from "next/link";
+import { useActionState } from "react";
+import { AuthShell, TextField } from "@/components/AuthShell";
+import { loginAction, googleSignInAction } from "@/lib/actions";
 
 export default function LoginPage() {
+  const [state, action, pending] = useActionState(loginAction, null);
   return (
     <AuthShell
       title="Welcome back."
@@ -17,22 +20,41 @@ export default function LoginPage() {
         </>
       }
     >
-      <form className="space-y-4">
-        <TextField label="Email" type="email" placeholder="you@example.com" />
-        <TextField label="Password" type="password" placeholder="••••••••" />
-        <div className="flex items-center justify-between text-xs">
-          <label className="flex items-center gap-2 text-ink/65">
-            <input type="checkbox" className="h-3.5 w-3.5 accent-tick" /> Keep me
-            signed in
-          </label>
+      <form action={action} className="space-y-4">
+        <TextField
+          label="Email"
+          name="email"
+          type="email"
+          required
+          placeholder="you@example.com"
+        />
+        <TextField
+          label="Password"
+          name="password"
+          type="password"
+          required
+          placeholder="••••••••"
+        />
+        <div className="flex items-center justify-end text-xs">
           <Link href="/forgot-password" className="link-muted">
             Forgot password?
           </Link>
         </div>
-        <button type="button" className="btn-tick w-full">
-          Log in
+        {state?.error ? (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {state.error}
+          </p>
+        ) : null}
+        <button
+          type="submit"
+          disabled={pending}
+          className="btn-tick w-full disabled:opacity-60"
+        >
+          {pending ? "Signing in…" : "Log in"}
         </button>
-        <button type="button" className="btn-secondary w-full">
+      </form>
+      <form action={googleSignInAction} className="mt-3">
+        <button type="submit" className="btn-secondary w-full">
           Continue with Google
         </button>
       </form>

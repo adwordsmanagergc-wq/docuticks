@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://docuticks.com"),
@@ -40,7 +41,9 @@ export default function RootLayout({
           href="https://api.fontshare.com/v2/css?f[]=general-sans@500,600,700&display=swap"
         />
       </head>
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

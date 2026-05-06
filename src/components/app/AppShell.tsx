@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { ReactNode } from "react";
+import { useSession } from "next-auth/react";
 import {
   LayoutDashboard,
   Files,
@@ -9,9 +12,9 @@ import {
   UserCircle,
   Plus,
   Search,
-  Settings,
 } from "lucide-react";
 import { Logo } from "../Logo";
+import { UserMenu } from "../UserMenu";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -31,6 +34,7 @@ export function AppShell({
   pageTitle: string;
   pageActions?: ReactNode;
 }) {
+  const { data: session } = useSession();
   return (
     <div className="flex min-h-screen bg-paper">
       <aside className="hidden w-64 shrink-0 flex-col justify-between border-r border-ink/10 bg-white px-4 py-5 lg:flex">
@@ -59,15 +63,12 @@ export function AppShell({
         </div>
         <div className="rounded-xl border border-ink/10 bg-paper p-4 text-xs">
           <p className="font-semibold text-ink">Entry plan</p>
-          <p className="mt-1 text-ink/60">3 of 5 active forms used</p>
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
-            <div className="h-full w-3/5 rounded-full bg-tick" />
-          </div>
+          <p className="mt-1 text-ink/60">14-day free trial</p>
           <Link
             href="/billing"
             className="mt-3 inline-flex items-center gap-1 text-tick hover:underline"
           >
-            Upgrade plan →
+            Manage plan →
           </Link>
         </div>
       </aside>
@@ -85,12 +86,10 @@ export function AppShell({
               />
             </div>
             {pageActions}
-            <Link href="/account" className="text-ink/60 hover:text-ink">
-              <Settings className="h-5 w-5" />
-            </Link>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ink text-sm font-medium text-white">
-              JS
-            </span>
+            <UserMenu
+              name={session?.user?.name ?? null}
+              email={session?.user?.email ?? null}
+            />
           </div>
         </header>
         <main className="flex-1 p-6 lg:p-10">{children}</main>
