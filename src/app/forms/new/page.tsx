@@ -2,12 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { nanoid } from "nanoid";
 import { UploadCloud, Loader2, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
-import { dataUrlToUint8Array, fileToDataUrl, loadPdfJs } from "@/lib/pdf";
-import { formStore } from "@/lib/store";
-import { DEFAULT_FILENAME_PATTERN } from "@/lib/types";
+import { fileToArrayBuffer, loadPdfJs } from "@/lib/pdf";
+import { createFormAction } from "@/lib/actions";
 
 export default function NewFormPage() {
   const router = useRouter();
@@ -17,32 +15,28 @@ export default function NewFormPage() {
   async function handleFile(file: File | null) {
     if (!file) return;
     if (file.type !== "application/pdf") {
-      setErr("Please upload a PDF. (Image OCR coming soon.)");
+      setErr("Please upload a PDF.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setErr("PDF is too large (10 MB max).");
       return;
     }
     setErr(null);
     setBusy(true);
     try {
-      const dataUrl = await fileToDataUrl(file);
+      const buffer = await fileToArrayBuffer(file);
       const pdfjs = await loadPdfJs();
-      const doc = await pdfjs.getDocument({ data: dataUrlToUint8Array(dataUrl) })
+      const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer) })
         .promise;
-      const id = nanoid(8);
-      const name = file.name.replace(/\.pdf$/i, "") || "Untitled form";
-      formStore.upsert({
-        id,
-        name,
-        status: "draft",
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        pdfDataUrl: dataUrl,
-        pageCount: doc.numPages,
-        fields: [],
-        filenamePattern: DEFAULT_FILENAME_PATTERN,
-      });
+      const fd = new FormData();
+      fd.set("pdf", file, file.name);
+      fd.set("name", file.name.replace(/\.pdf$/i, "") || "Untitled form");
+      fd.set("pageCount", String(doc.numPages));
+      const { id } = await createFormAction(fd);
       router.push(`/forms/${id}`);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not read PDF");
+      setErr(e instanceof Error ? e.message : "Could not save form");
       setBusy(false);
     }
   }
@@ -55,14 +49,12 @@ export default function NewFormPage() {
             Upload your scanned document
           </h2>
           <p className="mt-1 text-sm text-ink/60">
-            PDF up to 25 MB. We'll render every page so you can place fields
+            PDF up to 10 MB. We render every page so you can place fields
             directly on top.
           </p>
 
           <label
-            onDragOver={(e) => {
-              e.preventDefault();
-            }}
+            onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
               const f = e.dataTransfer.files?.[0];
@@ -78,7 +70,7 @@ export default function NewFormPage() {
               <>
                 <Loader2 className="h-8 w-8 animate-spin text-tick" />
                 <p className="text-sm font-medium text-ink">
-                  Reading your PDF…
+                  Uploading & reading your PDF…
                 </p>
               </>
             ) : (
@@ -87,7 +79,7 @@ export default function NewFormPage() {
                 <p className="text-sm font-medium text-ink">
                   Drop your file here, or click to browse
                 </p>
-                <p className="text-xs text-ink/50">PDF only. 25 MB max.</p>
+                <p className="text-xs text-ink/50">PDF only. 10 MB max.</p>
               </>
             )}
             <input
@@ -107,8 +99,7 @@ export default function NewFormPage() {
 
           <div className="mt-4 flex items-center gap-2 text-xs text-ink/55">
             <Sparkles className="h-3.5 w-3.5 text-tick" />
-            Your file is processed entirely in this browser for the demo. No
-            upload to a server.
+            Stored in your DocuTicks workspace, encrypted at rest.
           </div>
         </div>
 
@@ -125,7 +116,8 @@ export default function NewFormPage() {
             </li>
             <li>
               <span className="font-medium text-ink">3. Share the link.</span>{" "}
-              Your client completes the form on any device.
+              Your client completes the form on any device. The signed PDF
+              lands in your inbox.
             </li>
           </ol>
         </div>

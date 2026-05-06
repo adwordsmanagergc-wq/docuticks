@@ -1,20 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { dataUrlToUint8Array, loadPdfJs } from "@/lib/pdf";
+import { fetchPdfBytes, loadPdfJs } from "@/lib/pdf";
 
 interface Props {
-  pdfDataUrl: string;
+  pdfUrl: string;
   pageNumber: number;
   scale?: number;
   onSize?: (size: { width: number; height: number }) => void;
 }
 
 /**
- * Renders a single PDF page into a canvas. Reports the rendered pixel size
- * so an overlay layer can be positioned absolutely on top of it.
+ * Fetches the PDF binary from a server endpoint and renders one page on a
+ * canvas. Reports the rendered pixel size so an overlay layer can sit on top.
  */
-export function PdfPage({ pdfDataUrl, pageNumber, scale = 1.4, onSize }: Props) {
+export function PdfPage({ pdfUrl, pageNumber, scale = 1.4, onSize }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [size, setSize] = useState<{ width: number; height: number }>({
     width: 0,
@@ -29,7 +29,7 @@ export function PdfPage({ pdfDataUrl, pageNumber, scale = 1.4, onSize }: Props) 
     (async () => {
       try {
         const pdfjs = await loadPdfJs();
-        const data = dataUrlToUint8Array(pdfDataUrl);
+        const data = await fetchPdfBytes(pdfUrl);
         const doc = await pdfjs.getDocument({ data }).promise;
         if (cancelled) return;
         const page = await doc.getPage(pageNumber);
@@ -54,10 +54,7 @@ export function PdfPage({ pdfDataUrl, pageNumber, scale = 1.4, onSize }: Props) 
         setSize(next);
         onSize?.(next);
       } catch (e) {
-        if (!cancelled) {
-          const msg = e instanceof Error ? e.message : String(e);
-          setError(msg);
-        }
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       }
     })();
 
@@ -69,7 +66,7 @@ export function PdfPage({ pdfDataUrl, pageNumber, scale = 1.4, onSize }: Props) 
         /* noop */
       }
     };
-  }, [pdfDataUrl, pageNumber, scale, onSize]);
+  }, [pdfUrl, pageNumber, scale, onSize]);
 
   return (
     <div

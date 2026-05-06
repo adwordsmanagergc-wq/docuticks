@@ -1,24 +1,15 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { Download, Inbox } from "lucide-react";
+import { Inbox } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
-import { submissionStore } from "@/lib/store";
-import { downloadDataUrl } from "@/lib/fillPdf";
-import type { SubmissionDoc } from "@/lib/types";
+import { getMySubmissions } from "@/lib/forms";
 
-export default function SubmissionsPage() {
-  const [rows, setRows] = useState<SubmissionDoc[]>([]);
-  const [loaded, setLoaded] = useState(false);
+export const metadata = { title: "Submissions" };
 
-  useEffect(() => {
-    setRows(submissionStore.list());
-    setLoaded(true);
-  }, []);
+export default async function SubmissionsPage() {
+  const rows = await getMySubmissions();
 
   return (
     <AppShell pageTitle="Submissions">
-      {loaded && rows.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="card p-16 text-center">
           <Inbox className="mx-auto h-10 w-10 text-ink/30" strokeWidth={1.4} />
           <h2 className="mt-4 text-lg font-semibold text-ink">
@@ -65,12 +56,12 @@ export default function SubmissionsPage() {
                     {r.filename}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={() => downloadDataUrl(r.pdfDataUrl, r.filename)}
+                    <a
+                      href={`/api/submissions/${r.id}/pdf`}
                       className="btn-secondary text-xs"
                     >
-                      <Download className="h-3.5 w-3.5" /> PDF
-                    </button>
+                      Download PDF
+                    </a>
                   </td>
                 </tr>
               ))}

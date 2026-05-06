@@ -26,8 +26,10 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts Account[]
-  sessions Session[]
+  accounts    Account[]
+  sessions    Session[]
+  forms       Form[]
+  submissions Submission[]
 }
 
 // Auth.js OAuth account link (e.g. Google).
@@ -64,4 +66,47 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+enum FormStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model Form {
+  id              String     @id @default(cuid())
+  ownerId         String
+  name            String
+  status          FormStatus @default(DRAFT)
+  pageCount       Int
+  fields          Json
+  filenamePattern String     @default("{FormName}_{SignerFirstName}-{SignerLastName}_{YYYY-MM-DD}.pdf")
+  pdf             Bytes
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  owner       User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+
+  @@index([ownerId])
+}
+
+model Submission {
+  id          String   @id @default(cuid())
+  formId      String
+  ownerId     String
+  signerName  String
+  signerEmail String?
+  filename    String
+  values      Json
+  pdf         Bytes
+  ip          String?
+  userAgent   String?
+  submittedAt DateTime @default(now())
+
+  form  Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([formId])
 }

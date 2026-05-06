@@ -25,7 +25,7 @@ export interface FormField {
   required: boolean;
   helper?: string;
   placeholder?: string;
-  options?: string[]; // dropdown
+  options?: string[];
   defaultValue?: string;
 }
 
@@ -35,10 +35,10 @@ export interface FormDoc {
   status: "draft" | "published";
   createdAt: number;
   updatedAt: number;
-  pdfDataUrl: string; // raw uploaded PDF
   pageCount: number;
   fields: FormField[];
-  filenamePattern: string; // {FormName}_{SignerFirstName}-{SignerLastName}_{YYYY-MM-DD}.pdf
+  filenamePattern: string;
+  pdfUrl: string; // server endpoint that streams the PDF
 }
 
 export interface SubmissionDoc {
@@ -49,8 +49,6 @@ export interface SubmissionDoc {
   signerEmail: string;
   submittedAt: number;
   filename: string;
-  pdfDataUrl: string;
-  values: Record<string, string>;
 }
 
 export const DEFAULT_FILENAME_PATTERN =

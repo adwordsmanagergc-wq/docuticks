@@ -1,22 +1,12 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Files, Inbox, Send, Plus } from "lucide-react";
+import { ArrowUpRight, Files, Inbox, Plus, Send } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
-import { formStore, submissionStore } from "@/lib/store";
-import type { FormDoc, SubmissionDoc } from "@/lib/types";
-import { downloadDataUrl } from "@/lib/fillPdf";
+import { getMyForms, getMySubmissions } from "@/lib/forms";
 
-export default function DashboardPage() {
-  const [forms, setForms] = useState<FormDoc[]>([]);
-  const [subs, setSubs] = useState<SubmissionDoc[]>([]);
+export const metadata = { title: "Dashboard" };
 
-  useEffect(() => {
-    setForms(formStore.list());
-    setSubs(submissionStore.list());
-  }, []);
-
+export default async function DashboardPage() {
+  const [forms, subs] = await Promise.all([getMyForms(), getMySubmissions()]);
   const recent = subs.slice(0, 5);
 
   return (
@@ -32,8 +22,12 @@ export default function DashboardPage() {
         <Stat
           icon={Files}
           label="Active forms"
-          value={`${forms.length} / 5`}
-          hint="Entry plan"
+          value={`${forms.length}`}
+          hint={
+            forms.filter((f) => f.status === "published").length
+              ? `${forms.filter((f) => f.status === "published").length} published`
+              : "No forms yet"
+          }
         />
         <Stat
           icon={Send}
@@ -43,9 +37,14 @@ export default function DashboardPage() {
         />
         <Stat
           icon={Inbox}
-          label="Awaiting review"
-          value="0"
-          hint="Nothing in your inbox"
+          label="This week"
+          value={String(
+            subs.filter(
+              (s) =>
+                Date.now() - s.submittedAt < 7 * 24 * 60 * 60 * 1000,
+            ).length,
+          )}
+          hint="In the last 7 days"
         />
       </div>
 
@@ -87,14 +86,12 @@ export default function DashboardPage() {
                         {new Date(row.submittedAt).toLocaleString()}
                       </p>
                     </div>
-                    <button
-                      onClick={() =>
-                        downloadDataUrl(row.pdfDataUrl, row.filename)
-                      }
+                    <a
+                      href={`/api/submissions/${row.id}/pdf`}
                       className="btn-secondary text-xs"
                     >
                       PDF
-                    </button>
+                    </a>
                   </div>
                 </li>
               ))}
