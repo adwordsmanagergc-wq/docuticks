@@ -18,6 +18,7 @@ import {
   Redo2,
   Save,
   Send,
+  Sparkles,
   Trash2,
   Undo2,
   AlertTriangle,
@@ -28,6 +29,7 @@ import { PdfPage } from "@/components/editor/PdfPage";
 import { FieldChip } from "@/components/editor/FieldChip";
 import { FIELD_BY_TYPE, FIELD_TYPES } from "@/components/editor/fieldDefs";
 import { updateFormAction } from "@/lib/actions";
+import { runOcr, suggestFieldsFromWords } from "@/lib/ocr";
 import type { FieldType, FormDoc, FormField } from "@/lib/types";
 
 const SCALE = 1.4;
@@ -44,6 +46,11 @@ export function FormEditor({ initial }: { initial: FormDoc }) {
 
   const historyRef = useRef<FormField[][]>([initial.fields]);
   const futureRef = useRef<FormField[][]>([]);
+
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [ocrStatus, setOcrStatus] = useState<string | null>(null);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [ocrToast, setOcrToast] = useState<string | null>(null);
 
   const updateFields = useCallback((next: FormField[]) => {
     setDoc((d) => ({ ...d, fields: next }));
@@ -65,6 +72,37 @@ export function FormEditor({ initial }: { initial: FormDoc }) {
     historyRef.current.push(next);
     setDoc((d) => ({ ...d, fields: next }));
   };
+
+  const handleOcr = useCallback(async () => {
+    setOcrBusy(true);
+    setOcrError(null);
+    setOcrToast(null);
+    setOcrStatus("Loading page");
+    try {
+      const words = await runOcr(doc.pdfUrl, page, (status, p) => {
+        setOcrStatus(`${status} (${Math.round(p * 100)}%)`);
+      });
+      const suggestions = suggestFieldsFromWords(words, page);
+      // Keep existing fields, append suggestions; let user dedupe by hand.
+      const merged = [...doc.fields, ...suggestions];
+      setDoc((d) => ({ ...d, fields: merged }));
+      historyRef.current.push(merged);
+      if (historyRef.current.length > 50) historyRef.current.shift();
+      futureRef.current = [];
+      if (suggestions.length === 0) {
+        setOcrToast(
+          "OCR finished but no obvious labels were found. Try the high-resolution scan or place fields manually.",
+        );
+      } else {
+        setOcrToast(`Added ${suggestions.length} suggested field${suggestions.length === 1 ? "" : "s"}.`);
+      }
+    } catch (e) {
+      setOcrError(e instanceof Error ? e.message : "OCR failed");
+    } finally {
+      setOcrBusy(false);
+      setOcrStatus(null);
+    }
+  }, [doc.pdfUrl, doc.fields, page]);
 
   const save = useCallback(
     async (overrides?: Partial<FormDoc>) => {
@@ -318,6 +356,34 @@ export function FormEditor({ initial }: { initial: FormDoc }) {
             >
               <Redo2 className="h-3.5 w-3.5" /> Redo
             </button>
+          </div>
+
+          <div className="mt-4">
+            <button
+              onClick={handleOcr}
+              disabled={ocrBusy}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-tick/30 bg-tick/5 px-2 py-2 text-xs font-medium text-tick hover:bg-tick/10 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {ocrBusy ? "Reading…" : "Smart fields (OCR this page)"}
+            </button>
+            {ocrStatus ? (
+              <p className="mt-2 text-[11px] text-ink/55">{ocrStatus}</p>
+            ) : null}
+            {ocrToast ? (
+              <p className="mt-2 rounded-md border border-tick/30 bg-tick/5 px-2 py-1.5 text-[11px] text-tick">
+                {ocrToast}
+              </p>
+            ) : null}
+            {ocrError ? (
+              <p className="mt-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] text-red-700">
+                {ocrError}
+              </p>
+            ) : null}
+            <p className="mt-2 text-[11px] text-ink/45">
+              Runs entirely in your browser. First run downloads a small
+              language model, then it&apos;s cached.
+            </p>
           </div>
 
           {!hasSignerName ? (
