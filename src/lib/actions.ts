@@ -94,7 +94,12 @@ export async function googleSignInAction() {
 }
 
 export async function logoutAction() {
-  await signOut({ redirectTo: "/" });
+  // Some Auth.js v5 beta builds mishandle the `redirectTo` option when called
+  // from a server action and end up redirecting to "/undefined". Disable the
+  // built-in redirect and do it ourselves with Next's `redirect`, which is
+  // unambiguous.
+  await signOut({ redirect: false });
+  redirect("/");
 }
 
 // ---------- Form CRUD ------------------------------------------------------
