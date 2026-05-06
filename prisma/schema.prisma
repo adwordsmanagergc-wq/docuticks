@@ -1,9 +1,9 @@
 // Prisma schema for DocuTicks.
 //
-// On Vercel:
-//   POSTGRES_PRISMA_URL      → pooled connection (used at runtime)
-//   POSTGRES_URL_NON_POOLING → direct connection (used for migrations)
-// These are auto-injected by Vercel Postgres / Neon when you add the integration.
+// On Vercel with the Neon integration:
+//   DATABASE_URL          → pooled connection (used at runtime)
+//   DATABASE_URL_UNPOOLED → direct connection (used for migrations)
+// These are auto-injected when you connect a Neon database to the project.
 
 generator client {
   provider = "prisma-client-js"
@@ -11,8 +11,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("POSTGRES_PRISMA_URL")
-  directUrl = env("POSTGRES_URL_NON_POOLING")
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 model User {

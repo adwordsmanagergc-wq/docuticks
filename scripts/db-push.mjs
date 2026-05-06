@@ -6,14 +6,14 @@
 import { spawnSync } from "node:child_process";
 
 const url =
+  process.env.DATABASE_URL ||
   process.env.POSTGRES_PRISMA_URL ||
-  process.env.POSTGRES_URL ||
-  process.env.DATABASE_URL;
+  process.env.POSTGRES_URL;
 
 if (!url) {
   console.warn(
-    "[docuticks] No POSTGRES_PRISMA_URL / DATABASE_URL set — skipping `prisma db push`. " +
-      "Provision Vercel Postgres (or any Postgres) and redeploy to enable login.",
+    "[docuticks] No DATABASE_URL set — skipping `prisma db push`. " +
+      "Connect a Neon database (or any Postgres) and redeploy to enable login.",
   );
   process.exit(0);
 }
