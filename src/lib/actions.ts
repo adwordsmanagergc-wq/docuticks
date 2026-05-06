@@ -107,7 +107,14 @@ export async function logoutAction() {
 async function requireUserId(): Promise<string> {
   const session = await auth();
   const id = session?.user?.id;
-  if (!id) throw new Error("Unauthorized");
+  if (!id) {
+    console.error("requireUserId: no session in server action context", {
+      hasSession: !!session,
+      sessionKeys: session ? Object.keys(session) : null,
+      userKeys: session?.user ? Object.keys(session.user) : null,
+    });
+    throw new Error("Unauthorized");
+  }
   return id;
 }
 
