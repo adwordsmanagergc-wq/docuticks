@@ -5,7 +5,15 @@ import { useState } from "react";
 import { UploadCloud, Loader2, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { fileToArrayBuffer, loadPdfJs } from "@/lib/pdf";
+import { imageFileToPdfBytes } from "@/lib/imageToPdf";
 import { createFormAction } from "@/lib/actions";
+
+const ACCEPTED = [
+  "application/pdf",
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+];
 
 export default function NewFormPage() {
   const router = useRouter();
@@ -14,24 +22,38 @@ export default function NewFormPage() {
 
   async function handleFile(file: File | null) {
     if (!file) return;
-    if (file.type !== "application/pdf") {
-      setErr("Please upload a PDF.");
+    if (!ACCEPTED.includes(file.type)) {
+      setErr("Please upload a PDF, JPG or PNG.");
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      setErr("PDF is too large (10 MB max).");
+      setErr("File is too large (10 MB max).");
       return;
     }
     setErr(null);
     setBusy(true);
     try {
-      const buffer = await fileToArrayBuffer(file);
+      // Convert images to a single-page PDF so the rest of the pipeline
+      // (PDF.js rendering, pdf-lib filling) stays unchanged.
+      let pdfFile: File;
+      let baseName: string;
+      if (file.type === "application/pdf") {
+        pdfFile = file;
+        baseName = file.name.replace(/\.pdf$/i, "");
+      } else {
+        const bytes = await imageFileToPdfBytes(file);
+        baseName = file.name.replace(/\.(jpe?g|png)$/i, "");
+        pdfFile = new File([new Uint8Array(bytes)], `${baseName}.pdf`, {
+          type: "application/pdf",
+        });
+      }
+      const buffer = await fileToArrayBuffer(pdfFile);
       const pdfjs = await loadPdfJs();
       const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer) })
         .promise;
       const fd = new FormData();
-      fd.set("pdf", file, file.name);
-      fd.set("name", file.name.replace(/\.pdf$/i, "") || "Untitled form");
+      fd.set("pdf", pdfFile, pdfFile.name);
+      fd.set("name", baseName || "Untitled form");
       fd.set("pageCount", String(doc.numPages));
       const { id } = await createFormAction(fd);
       router.push(`/forms/${id}`);
@@ -49,8 +71,8 @@ export default function NewFormPage() {
             Upload your scanned document
           </h2>
           <p className="mt-1 text-sm text-ink/60">
-            PDF up to 10 MB. We render every page so you can place fields
-            directly on top.
+            PDF, JPG or PNG up to 10 MB. We render every page so you can place
+            fields directly on top.
           </p>
 
           <label
@@ -79,12 +101,14 @@ export default function NewFormPage() {
                 <p className="text-sm font-medium text-ink">
                   Drop your file here, or click to browse
                 </p>
-                <p className="text-xs text-ink/50">PDF only. 10 MB max.</p>
+                <p className="text-xs text-ink/50">
+                  PDF, JPG or PNG. 10 MB max.
+                </p>
               </>
             )}
             <input
               type="file"
-              accept="application/pdf"
+              accept="application/pdf,image/jpeg,image/png"
               className="hidden"
               disabled={busy}
               onChange={(e) => void handleFile(e.target.files?.[0] ?? null)}
