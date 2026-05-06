@@ -134,34 +134,60 @@ const fieldSchema = z.object({
 
 const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10 MB
 
+export type CreateFormResult =
+  | { ok: true; id: string }
+  | { ok: false; error: string };
+
 export async function createFormAction(
   formData: FormData,
-): Promise<{ id: string }> {
-  const ownerId = await requireUserId();
+): Promise<CreateFormResult> {
+  let ownerId: string;
+  try {
+    ownerId = await requireUserId();
+  } catch {
+    return { ok: false, error: "You need to sign in again to upload a form." };
+  }
+
   const file = formData.get("pdf");
   const name = String(formData.get("name") ?? "Untitled form");
   const pageCount = Number(formData.get("pageCount") ?? 0);
-  if (!(file instanceof Blob)) throw new Error("Missing PDF");
+  if (!(file instanceof Blob)) {
+    return { ok: false, error: "The upload was missing the PDF data." };
+  }
   if (file.size > MAX_PDF_BYTES) {
-    throw new Error("PDF is too large (10 MB max).");
+    return { ok: false, error: "PDF is too large (10 MB max)." };
   }
   if (!Number.isFinite(pageCount) || pageCount < 1) {
-    throw new Error("Could not read PDF page count.");
+    return { ok: false, error: "Could not read PDF page count." };
   }
-  const buf = Buffer.from(await file.arrayBuffer());
-  const created = await prisma.form.create({
-    data: {
+
+  try {
+    const buf = Buffer.from(await file.arrayBuffer());
+    const created = await prisma.form.create({
+      data: {
+        ownerId,
+        name,
+        pageCount,
+        fields: [] as unknown as Prisma.InputJsonValue,
+        filenamePattern: DEFAULT_FILENAME_PATTERN,
+        pdf: buf,
+      },
+      select: { id: true },
+    });
+    revalidatePath("/forms");
+    return { ok: true, id: created.id };
+  } catch (err) {
+    console.error("createFormAction failed", {
       ownerId,
       name,
       pageCount,
-      fields: [] as unknown as Prisma.InputJsonValue,
-      filenamePattern: DEFAULT_FILENAME_PATTERN,
-      pdf: buf,
-    },
-    select: { id: true },
-  });
-  revalidatePath("/forms");
-  return { id: created.id };
+      fileSize: file.size,
+      err,
+    });
+    const message =
+      err instanceof Error ? err.message : "Unknown database error";
+    return { ok: false, error: `Could not save form: ${message}` };
+  }
 }
 
 const updateSchema = z.object({

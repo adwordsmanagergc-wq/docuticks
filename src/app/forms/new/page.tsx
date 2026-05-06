@@ -32,11 +32,10 @@ export default function NewFormPage() {
     }
     setErr(null);
     setBusy(true);
+
+    let pdfFile: File;
+    let baseName: string;
     try {
-      // Convert images to a single-page PDF so the rest of the pipeline
-      // (PDF.js rendering, pdf-lib filling) stays unchanged.
-      let pdfFile: File;
-      let baseName: string;
       if (file.type === "application/pdf") {
         pdfFile = file;
         baseName = file.name.replace(/\.pdf$/i, "");
@@ -47,18 +46,57 @@ export default function NewFormPage() {
           type: "application/pdf",
         });
       }
+    } catch (e) {
+      console.error("image-to-pdf conversion failed", e);
+      setErr(
+        `Could not read that image: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      setBusy(false);
+      return;
+    }
+
+    let pageCount: number;
+    try {
       const buffer = await fileToArrayBuffer(pdfFile);
       const pdfjs = await loadPdfJs();
       const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer) })
         .promise;
+      pageCount = doc.numPages;
+    } catch (e) {
+      console.error("pdf.js failed to read converted PDF", e);
+      setErr(
+        `Could not render that file: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      setBusy(false);
+      return;
+    }
+
+    try {
       const fd = new FormData();
       fd.set("pdf", pdfFile, pdfFile.name);
       fd.set("name", baseName || "Untitled form");
-      fd.set("pageCount", String(doc.numPages));
-      const { id } = await createFormAction(fd);
-      router.push(`/forms/${id}`);
+      fd.set("pageCount", String(pageCount));
+      const result = await createFormAction(fd);
+      if (!result.ok) {
+        setErr(result.error);
+        setBusy(false);
+        return;
+      }
+      router.push(`/forms/${result.id}`);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not save form");
+      // Reaching this branch means the server action itself threw — typically
+      // a transport-level failure (body size, timeout, 5xx). In production
+      // Next.js redacts the message; the digest in the server logs is the
+      // only way to recover the real cause.
+      const message =
+        e instanceof Error ? e.message : "Upload failed unexpectedly";
+      const digest = (e as { digest?: string } | null)?.digest;
+      console.error("createFormAction transport error", { message, digest, e });
+      setErr(
+        digest
+          ? `Upload failed (server digest: ${digest}). Please try a smaller file or check the server logs.`
+          : `Upload failed: ${message}`,
+      );
       setBusy(false);
     }
   }
